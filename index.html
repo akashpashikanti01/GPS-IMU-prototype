@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
+    <style>
+        #map {
+            height: 600px;
+        }
+        .waypoint-list {
+            list-style-type: none;
+            margin: 0;
+            padding: 0;
+        }
+        .waypoint {
+            padding: 5px;
+            margin: 5px;
+            border: 1px solid #ccc;
+        }
+    </style>
+    <title>Autonomous Car Route Planner</title>
+</head>
+<body>
+    <h1>Autonomous Car Route Planner</h1>
+    <div id="map"></div>
+    <ul class="waypoint-list"></ul>
+    <button id="exportBtn">Export Waypoints as JSON</button>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script>
+        const map = L.map('map').setView([0, 0], 2);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { 
+            maxZoom: 19,
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        const waypoints = [];
+        const waypointList = document.querySelector('.waypoint-list');
+
+        function addWaypoint(lat, lng) {
+            waypoints.push({ lat, lng });
+            const li = document.createElement('li');
+            li.className = 'waypoint';
+            li.textContent = `Waypoint: (${lat.toFixed(5)}, ${lng.toFixed(5)})`;
+            waypointList.appendChild(li);
+        }
+
+        map.on('click', function (e) {
+            const { lat, lng } = e.latlng;
+            addWaypoint(lat, lng);
+            L.marker([lat, lng]).addTo(map);
+        });
+
+        document.getElementById('exportBtn').addEventListener('click', function () {
+            const json = JSON.stringify(waypoints, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'waypoints.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+    </script>
+</body>
+</html>
