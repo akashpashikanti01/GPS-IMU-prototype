@@ -1,138 +1,433 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
-    <style>
-        body { font-family: sans-serif; margin: 20px; background: #f4f4f4; }
-        #map { height: 600px; width: 100%; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .controls { margin-top: 15px; display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start; }
-        .waypoint-list { 
-            flex: 1; min-width: 300px; height: 150px; overflow-y: auto; 
-            background: white; padding: 10px; border: 1px solid #ccc; border-radius: 5px;
-            list-style: none; font-size: 14px; margin: 0;
-        }
-        .waypoint { padding: 4px 0; border-bottom: 1px solid #eee; }
-        .btn-group { display: flex; flex-direction: column; gap: 10px; }
-        button { 
-            padding: 10px 20px; cursor: pointer; border: none; border-radius: 5px; 
-            font-weight: bold; color: white; transition: 0.2s;
-        }
-        #exportBtn { background: #007bff; }
-        #exportBtn:hover { background: #0056b3; }
-        #undoBtn { background: #ffc107; color: #212529; }
-        #undoBtn:hover { background: #e0a800; }
-        #clearBtn { background: #dc3545; }
-        #clearBtn:hover { background: #c82333; }
-    </style>
-    <title>Telangana Route Planner</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Advanced Route Planner</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
+
+<style>
+
+    body{
+        margin:0;
+        font-family:'Segoe UI',sans-serif;
+        background:#f5f5f5;
+    }
+
+    h1{
+        text-align:center;
+        padding:15px;
+        margin:0;
+        background:white;
+        box-shadow:0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    #map{
+        height:75vh;
+        width:100%;
+    }
+
+    .controls{
+        padding:15px;
+        display:flex;
+        gap:15px;
+        flex-wrap:wrap;
+    }
+
+    .waypoint-list{
+        flex:1;
+        min-width:300px;
+        height:180px;
+        overflow-y:auto;
+        background:white;
+        border-radius:12px;
+        padding:10px;
+        list-style:none;
+        border:1px solid #ddd;
+        box-shadow:0 2px 10px rgba(0,0,0,0.08);
+    }
+
+    .waypoint{
+        padding:8px;
+        border-bottom:1px solid #eee;
+    }
+
+    .btn-group{
+        display:flex;
+        flex-direction:column;
+        gap:10px;
+    }
+
+    button{
+        padding:12px 18px;
+        border:none;
+        border-radius:8px;
+        cursor:pointer;
+        font-weight:bold;
+        color:white;
+        transition:0.2s;
+    }
+
+    button:hover{
+        transform:scale(1.03);
+        opacity:0.9;
+    }
+
+    #undoBtn{
+        background:#ffc107;
+        color:black;
+    }
+
+    #exportBtn{
+        background:#28a745;
+    }
+
+    #clearBtn{
+        background:#dc3545;
+    }
+
+    /* =========================
+       GOOGLE MAP STYLE SEARCH
+    ========================= */
+
+    #searchContainer{
+        position:absolute;
+        top:80px;
+        left:70px;
+        z-index:1000;
+        width:360px;
+    }
+
+    #searchInput{
+        width:100%;
+        padding:14px 18px;
+        border-radius:30px;
+        border:none;
+        outline:none;
+        font-size:16px;
+        box-shadow:0 2px 12px rgba(0,0,0,0.25);
+    }
+
+    #suggestions{
+        background:white;
+        border-radius:12px;
+        margin-top:8px;
+        overflow:hidden;
+        box-shadow:0 4px 12px rgba(0,0,0,0.2);
+        max-height:300px;
+        overflow-y:auto;
+    }
+
+    .suggestion-item{
+        padding:12px 16px;
+        cursor:pointer;
+        border-bottom:1px solid #eee;
+    }
+
+    .suggestion-item:hover{
+        background:#f1f1f1;
+    }
+
+</style>
 </head>
+
 <body>
 
-    <h1>Autonomous Car Route Planner</h1>
-    <div id="map"></div>
+<h1>📍 Smart Route Planner</h1>
 
-    <div class="controls">
-        <ul class="waypoint-list" id="list">
-            <li style="color: #888;">Click map to add waypoints...</li>
-        </ul>
-        <div class="btn-group">
-            <button id="undoBtn">↶ Undo Last Point</button>
-            <button id="exportBtn">💾 Export Waypoints (JSON)</button>
-            <button id="clearBtn">🗑️ Clear All</button>
-        </div>
+<div id="map"></div>
+
+<!-- SEARCH BAR -->
+<div id="searchContainer">
+    <input 
+        type="text" 
+        id="searchInput" 
+        placeholder="Search places like Google Maps..."
+        autocomplete="off"
+    >
+
+    <div id="suggestions"></div>
+</div>
+
+<!-- CONTROLS -->
+<div class="controls">
+
+    <ul class="waypoint-list" id="list">
+        <li style="color:gray;">Search or click map to add points...</li>
+    </ul>
+
+    <div class="btn-group">
+        <button id="undoBtn">↶ Undo Last Point</button>
+        <button id="exportBtn">💾 Download JSON</button>
+        <button id="clearBtn">🗑️ Reset Everything</button>
     </div>
 
-    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-    <script>
-        // Start view centered on Telangana (or NIT Warangal: [17.9830, 79.5306])
-        const map = L.map('map').setView([17.3850, 78.4867], 8);
+</div>
 
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { 
-            maxZoom: 19,
-            attribution: '© OpenStreetMap'
-        }).addTo(map);
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
-        let waypoints = [];
-        let markers = [];
-        const waypointList = document.getElementById('list');
-        
-        // Visual line
-        let pathLine = L.polyline([], {color: 'blue', weight: 3}).addTo(map);
+<script>
 
-        function renderList() {
-            if (waypoints.length === 0) {
-                waypointList.innerHTML = '<li style="color: #888;">Click map to add waypoints...</li>';
-                return;
-            }
-            waypointList.innerHTML = '';
-            waypoints.forEach((wp, index) => {
-                const li = document.createElement('li');
-                li.className = 'waypoint';
-                li.textContent = `Point ${index + 1}: (${wp.lat.toFixed(5)}, ${wp.lng.toFixed(5)})`;
-                waypointList.appendChild(li);
-            });
-            waypointList.scrollTop = waypointList.scrollHeight;
+    // =========================
+    // CREATE MAP
+    // =========================
+
+    const map = L.map('map').setView([17.9830, 79.5306], 15);
+
+    // =========================
+    // TILE LAYER
+    // =========================
+
+    L.tileLayer(
+        'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        {
+            maxZoom:19,
+            attribution:'© OpenStreetMap'
+        }
+    ).addTo(map);
+
+    // =========================
+    // SEARCH BAR
+    // =========================
+
+    const searchInput = document.getElementById('searchInput');
+    const suggestions = document.getElementById('suggestions');
+
+    async function searchPlaces(query){
+
+        if(query.length < 2){
+            suggestions.innerHTML = '';
+            return;
         }
 
-        map.on('click', function (e) {
-            const { lat, lng } = e.latlng;
-            
-            // Add to data
-            waypoints.push({ lat, lng });
-            
-            // Add Marker
-            const marker = L.marker([lat, lng]).addTo(map);
-            markers.push(marker);
+        try{
 
-            // Update Line
-            pathLine.addLatLng([lat, lng]);
+            const url = `https://nominatim.openstreetmap.org/search?format=json&q=${query}`;
 
-            renderList();
+            const response = await fetch(url);
+
+            const data = await response.json();
+
+            suggestions.innerHTML = '';
+
+            data.slice(0,5).forEach(place => {
+
+                const div = document.createElement('div');
+
+                div.className = 'suggestion-item';
+
+                div.innerText = place.display_name;
+
+                div.onclick = () => {
+
+                    const lat = parseFloat(place.lat);
+                    const lon = parseFloat(place.lon);
+
+                    map.flyTo([lat, lon], 17);
+
+                    suggestions.innerHTML = '';
+
+                    searchInput.value = place.display_name;
+
+                    // OPTIONAL:
+                    // Automatically add marker
+
+                    const marker = L.marker([lat, lon])
+                        .addTo(map)
+                        .bindPopup(place.display_name)
+                        .openPopup();
+
+                };
+
+                suggestions.appendChild(div);
+
+            });
+
+        }
+        catch(err){
+            console.log(err);
+        }
+    }
+
+    // LIVE SEARCH
+    searchInput.addEventListener('input', () => {
+        searchPlaces(searchInput.value);
+    });
+
+    // =========================
+    // WAYPOINT SYSTEM
+    // =========================
+
+    let waypoints = [];
+    let markers = [];
+
+    const waypointList = document.getElementById('list');
+
+    const pathLine = L.polyline(
+        [],
+        {
+            color:'#28a745',
+            weight:5
+        }
+    ).addTo(map);
+
+    // =========================
+    // UPDATE UI
+    // =========================
+
+    function updateUI(){
+
+        if(waypoints.length === 0){
+
+            waypointList.innerHTML =
+                '<li style="color:gray;">Map is empty.</li>';
+
+            return;
+        }
+
+        waypointList.innerHTML = '';
+
+        waypoints.forEach((wp, i) => {
+
+            const li = document.createElement('li');
+
+            li.className = 'waypoint';
+
+            li.innerHTML =
+                `<b>Point ${i+1}</b><br>
+                ${wp.lat.toFixed(6)},
+                ${wp.lng.toFixed(6)}`;
+
+            waypointList.appendChild(li);
+
         });
 
-        // --- UNDO LOGIC ---
-        document.getElementById('undoBtn').addEventListener('click', function() {
-            if (waypoints.length === 0) return;
+        waypointList.scrollTop =
+            waypointList.scrollHeight;
+    }
 
-            // 1. Remove last data point
-            waypoints.pop();
+    // =========================
+    // MAP CLICK
+    // =========================
 
-            // 2. Remove last marker from map
-            const lastMarker = markers.pop();
-            map.removeLayer(lastMarker);
+    map.on('click', function(e){
 
-            // 3. Update the line path
-            const newPath = waypoints.map(wp => [wp.lat, wp.lng]);
-            pathLine.setLatLngs(newPath);
+        const lat = e.latlng.lat;
+        const lng = e.latlng.lng;
 
-            // 4. Update UI
-            renderList();
+        waypoints.push({lat, lng});
+
+        const marker = L.marker([lat, lng])
+            .addTo(map)
+            .bindTooltip(
+                `${waypoints.length}`,
+                {
+                    permanent:true,
+                    direction:'right'
+                }
+            );
+
+        markers.push(marker);
+
+        pathLine.addLatLng([lat, lng]);
+
+        updateUI();
+
+    });
+
+    // =========================
+    // UNDO BUTTON
+    // =========================
+
+    document.getElementById('undoBtn')
+    .addEventListener('click', () => {
+
+        if(waypoints.length === 0)
+            return;
+
+        waypoints.pop();
+
+        map.removeLayer(markers.pop());
+
+        pathLine.setLatLngs(
+            waypoints.map(
+                wp => [wp.lat, wp.lng]
+            )
+        );
+
+        updateUI();
+
+    });
+
+    // =========================
+    // EXPORT JSON
+    // =========================
+
+    document.getElementById('exportBtn')
+    .addEventListener('click', () => {
+
+        if(waypoints.length === 0){
+
+            alert("Select points first!");
+
+            return;
+        }
+
+        const blob = new Blob(
+            [
+                JSON.stringify(
+                    waypoints,
+                    null,
+                    2
+                )
+            ],
+            {
+                type:'application/json'
+            }
+        );
+
+        const url =
+            URL.createObjectURL(blob);
+
+        const a =
+            document.createElement('a');
+
+        a.href = url;
+
+        a.download =
+            'route_coordinates.json';
+
+        a.click();
+
+    });
+
+    // =========================
+    // CLEAR BUTTON
+    // =========================
+
+    document.getElementById('clearBtn')
+    .addEventListener('click', () => {
+
+        if(!confirm("Clear all points?"))
+            return;
+
+        waypoints = [];
+
+        markers.forEach(marker => {
+            map.removeLayer(marker);
         });
 
-        // --- EXPORT LOGIC ---
-        document.getElementById('exportBtn').addEventListener('click', function () {
-            if(waypoints.length === 0) return alert("Add some points first!");
-            const json = JSON.stringify(waypoints, null, 2);
-            const blob = new Blob([json], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'route_data.json';
-            a.click();
-            URL.revokeObjectURL(url);
-        });
+        markers = [];
 
-        // --- CLEAR LOGIC ---
-        document.getElementById('clearBtn').addEventListener('click', function() {
-            if(!confirm("Clear all points?")) return;
-            waypoints = [];
-            markers.forEach(m => map.removeLayer(m));
-            markers = [];
-            pathLine.setLatLngs([]);
-            renderList();
-        });
-    </script>
+        pathLine.setLatLngs([]);
+
+        updateUI();
+
+    });
+
+</script>
+
 </body>
 </html>
